@@ -32,12 +32,12 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login")
 async def login(username: str, password: str, db: Session = Depends(get_db)):
 
-  user = user_log(db, username=username, password=password)
+  user = user_log(db, username=username)
 
   if not user:
     raise HTTPException(status_code=400, detail="Usuario o contraseña incorrectos")
 
-  if not await verify_password(password, user.password):
+  if not await verify_password(password, user.password_hash):
     raise HTTPException(status_code=400, detail="Usuario o contraseña incorrectos")
 
   token = create_access_token(data={ "sub": user.id })

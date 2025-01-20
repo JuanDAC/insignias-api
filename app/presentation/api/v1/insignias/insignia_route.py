@@ -39,9 +39,9 @@ def read_insignia(insignia_id: ID, db: Session = Depends(get_db)):
     raise HTTPException(status_code=404, detail="Insignia not found")
   return db_insignia
 
-@router.get("/{insignia_id}/asignar", response_model=Insignia, dependencies=[Depends(get_current_user)])
-def read_insignia(insignia_id: ID, db: Session = Depends(get_db), user: User  = Depends(get_current_user)):
-  db_insignia = assign_insignia_to_user(db, insignia_id=insignia_id, user=user)
+@router.post("/{insignia_id}/asignar", response_model=Insignia, dependencies=[Depends(get_current_user)])
+def read_insignia(insignia_id: ID, user_id: ID, db: Session = Depends(get_db)):
+  db_insignia = assign_insignia_to_user(db, insignia_id=insignia_id, user_id=user_id)
   if db_insignia is None:
     raise HTTPException(status_code=404, detail="Insignia not found")
   return db_insignia
