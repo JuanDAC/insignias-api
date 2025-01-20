@@ -1,5 +1,6 @@
 from app.infra.adapters.db.users.user_orm import User
 from sqlmodel import Session, select
+from math import ceil
 
 def update_user_experience(db: Session, user_id: int, experience_delta: int) -> User | None:
 
@@ -9,6 +10,7 @@ def update_user_experience(db: Session, user_id: int, experience_delta: int) -> 
     return None
 
   user.experience += experience_delta
+  user.level = ceil((user.experience / 10) + 1)
 
   db.add(user)
   db.commit()
