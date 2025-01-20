@@ -1,0 +1,13 @@
+[Unit]
+Description=AppInsignias
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/ubuntu/insignias
+ExecStart=/usr/bin/env python -m uvicorn app.pesentation.api.main:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

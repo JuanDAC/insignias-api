@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+
+function usage() {
+  echo "
+Uso: $0 [-h] [-o mode[ file]] [-a action] 
+
+Opciones:
+  -h, --help        Mostrar esta ayuda
+  -a, --action      Ejecutar un comando
+
+Flag details: $0 [-a | --action] [actions]:
+    Description: 
+    - This flag is used to specify the desired action to be performed by the script or command.
+    Options: 
+    - $0 [-a | --action] dev
+    - $0 [-a | --action] dev:bare_metal
+    - $0 [-a | --action] deploy:aws
+    - $0 [-a | --action] deploy:bare_metal
+    - $0 [-a | --action] start:aws:db
+    - $0 [-a | --action] start:bare_metal:db
+    - $0 [-a | --action] docker
+"
+}
+
+function action() {
+  case "$OPTARG" in
+    dev)
+      docker-compose up -d --build
+      ;;
+    dev:bare_metal)
+      PYTHON_VERSION="3.13"
+
+      APP_DIR="$(pwd)"
+      PYTHON=""
+
+      if ! command -v python3-$PYTHON_VERSION &> /dev/null; then
+        wget https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz
+        tar xzf Python-$PYTHON_VERSION.tgz
+        cd Python-$PYTHON_VERSION
+        ./configure --prefix="$APP_DIR/python-$PYTHON_VERSION"
+        make altinstall
+        cd -
+        echo "Installed python3-$PYTHON_VERSION"
+        PYTHON=python3-$PYTHON_VERSION
+      else
+        PYTHON=python3
+      fi
+
+      PYTHON -m venv "$APP_DIR/venv"
+
+      source "$APP_DIR/venv/bin/activate"
+
+      echo "Virtual environment created and activated successfully."
+
+      pip install -r requirements.txt
+
+      PYTHON -m uvicorn app.pesentation.api.main:app --reload
+      ;;
+    deploy:aws)
+      docker build -t insignia-app:latest .
+      docker push insignia-app:latest
+
+      aws ecs create-service \
+        --cluster ${AWS_CLUSTER_NAME} \
+        --service-name ${AWS_SERVICE_NAME} \
+        --task-definition ${AWS_TASK_DEFINITION} \
+        --desired-count 1
+      ;;
+    deploy:bare_metal)
+
+      sudo systemctl daemon-reload
+      sudo systemctl start insignias_uvicorn_service
+      sudo systemctl enable my_uvicorn_service
+
+      ;;
+    start:aws:db)
+      aws rds start-db-instance --db-instance-identifier ${AWS-DB-INSTANCE}
+      ;;
+    start:bare_metal:db)
+      DB_USER="${DB_USER:-postgres}"
+      DB_PASSWORD="${DB_PASSWORD:-mysecretpassword}"
+      DB_DATA_DIR="${DB_DATA_DIR:-/var/lib/postgresql/data}"
+
+      if [[ -z "${DB_USER}" || -z "${DB_PASSWORD}" || -z "${DB_DATA_DIR}" ]]; then
+        echo "Error: Las variables de entorno DB_USER, DB_PASSWORD y DB_DATA_DIR deben estar definidas."
+        exit 1
+      fi
+
+      if ! command -v postgresql >/dev/null 2>&1; then
+        echo "Instalando PostgreSQL..."
+        sudo apt install postgresql -y
+      fi
+
+      sudo systemctl start postgresql
+
+      if ! pg_isready -U ${DB_USER} -h localhost; then
+        echo "Error: No se pudo iniciar la base de datos PostgreSQL."
+        exit 1
+      fi
+
+      sudo -u postgres psql -c "CREATE DATABASE IF NOT EXISTS ${DB_NAME};"
+      sudo -u postgres psql -c "CREATE USER IF NOT EXISTS ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';"
+      sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+      export SQLALCHEMY_DATABASE_URI="postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-mysecretpassword}@localhost:5432/${DB_NAME}"
+      ;;
+    docker)
+      docker $2 $3
+      ;;
+    *)
+      echo "Acción inválida: $OPTARG" >&2
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+while getopts "hv:c:o:" opt; do
+  case $opt in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -a|--action)
+      action
+      ;;
+    \?)
+      echo "Opción inválida: -$OPTARG" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
