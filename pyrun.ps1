@@ -42,19 +42,19 @@ function Perform-Action {
             & docker-compose up -d --build
         }
         'dev:bare_metal' {
+            $PORT = $env:PORT ? $env:PORT : "8000"
             if (-not (Get-Command "python3" -ErrorAction SilentlyContinue)) {
                 Install-Python
             }
 
             $APP_DIR = Get-Location
-            $PYTHON = "python"
 
-            & $PYTHON -m venv "$APP_DIR\venv"
-            & "$APP_DIR\venv\Scripts\Activate.ps1"
+            python3 -m venv "$APP_DIR\venv"
+            "$APP_DIR\venv\Scripts\Activate.ps1"
             Write-Host "Virtual environment created and activated successfully."
-            & pip install -r requirements.txt
-            & $PYTHON -m uvicorn app.pesentation.api.main:app --reload
-        }
+            pip install -r requirements.txt
+            python3 -m uvicorn app.pesentation.api.main:app --reload --port "$PORT"
+        } 
         'deploy:aws' {
             & docker build -t insignia-app:latest .
             & docker push insignia-app:latest
