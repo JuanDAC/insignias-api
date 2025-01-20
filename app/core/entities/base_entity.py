@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, TypeVar
-ID = TypeVar('ID')
+ID = TypeVar('ID', str)
 
 class BaseEntity():
   id: ID
